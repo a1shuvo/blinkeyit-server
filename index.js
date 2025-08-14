@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import connectDB from "./config/connectDB.js";
 dotenv.config();
 
 const app = express();
@@ -31,6 +32,8 @@ app.get("/", (request, response) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log("Server is running on ", PORT);
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log("Server is running on", PORT);
+  });
 });
