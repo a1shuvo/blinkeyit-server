@@ -3,60 +3,68 @@ import sendEmail from "../config/sendEmail.js";
 import UserModel from "../models/user.model.js";
 import verifyEmailTemplate from "../utils/verifyEmailTemplate.js";
 
-export async function registerUserController(request, response) {
+export async function registerUserController(req, res) {
   try {
-    const { name, email, password } = request.body;
+    // Destructure the request body safely
+    const { name, email, password } = req.body || {};
 
+    // Check if any required field is missing
     if (!name || !email || !password) {
-      return response.status(400).json({
+      return res.status(400).json({
         message: "Provide name, email and password",
         error: true,
         success: false,
       });
     }
 
-    const user = await UserModel.findOne({ email });
-
-    if (user) {
-      return response.json({
-        message: "Already register email",
+    // Check if a user with the given email already exists
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        message: "Email is already registered",
         error: true,
         success: false,
       });
     }
 
+    // Generate a salt and hash the password for security
     const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    const payload = {
+    // Create a new user object
+    const newUser = new UserModel({
       name,
       email,
-      password: hashPassword,
-    };
+      password: hashedPassword, // store hashed password
+    });
 
-    const newUser = new UserModel(payload);
-    const save = await newUser.save();
+    // Save the new user to the database
+    const savedUser = await newUser.save();
 
-    const verifyEmailUrl = `${process.env.FRONTEND_URL}/verify-email?code=${save?._id}`;
+    // Generate a verification URL for email confirmation
+    const verifyEmailUrl = `${process.env.FRONTEND_URL}/verify-email?code=${savedUser._id}`;
 
-    const verifyEmail = await sendEmail({
+    // Send the verification email using the template
+    await sendEmail({
       sendTo: email,
       subject: "Blinkeyit User Verification Email!",
-      html: verifyEmailTemplate({
-        name,
-        url: verifyEmailUrl,
-      }),
+      html: verifyEmailTemplate({ name, url: verifyEmailUrl }),
     });
 
-    return response.json({
-      message: "User Registration Successfull!",
+    // Exclude password from response before sending back to client
+    // const { password: _, ...userData } = savedUser.toObject();
+
+    // Return success response
+    return res.status(201).json({
+      message: "User registration successful! Please verify your email.",
       error: false,
       success: true,
-      data: save,
+      data: savedUser,
     });
   } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
+    // Handle server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
       error: true,
       success: false,
     });

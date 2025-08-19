@@ -5,6 +5,7 @@ import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import connectDB from "./config/connectDB.js";
+import userRouter from "./route/user.route.js";
 dotenv.config();
 
 const app = express();
@@ -23,7 +24,7 @@ app.use(
   })
 );
 
-const PORT = 8080 || process.env.PORT;
+const PORT = process.env.PORT || 8080;
 
 app.get("/", (request, response) => {
   // Server to client
@@ -31,6 +32,8 @@ app.get("/", (request, response) => {
     message: "Server is running on " + PORT,
   });
 });
+
+app.use("/api/user", userRouter);
 
 connectDB().then(() => {
   app.listen(PORT, () => {
