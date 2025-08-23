@@ -17,7 +17,8 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
-app.use(morgan());
+const morganFormat = process.env.NODE_ENV === "production" ? "combined" : "dev";
+app.use(morgan(morganFormat));
 app.use(
   helmet({
     crossOriginOpenerPolicy: false,

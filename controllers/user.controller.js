@@ -1,6 +1,10 @@
 import bcrypt from "bcryptjs";
 import sendEmail from "../config/sendEmail.js";
 import UserModel from "../models/user.model.js";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+} from "../utils/generateToken.js";
 import verifyEmailTemplate from "../utils/verifyEmailTemplate.js";
 
 /**
@@ -79,7 +83,7 @@ export async function registerUserController(req, res) {
 
 /**
  * Controller: verifyEmailController
- * --------------------------------
+ * ----------------------------------
  * This controller verifies a user's email based on a unique code (usually user ID or token).
  * It checks if the user exists, updates their verification status, and returns the response.
  */
@@ -120,6 +124,94 @@ export async function verifyEmailController(req, res) {
     // Catch and handle unexpected server errors
     return res.status(500).json({
       message: error.message || "Server error during email verification.",
+      error: true,
+      success: false,
+    });
+  }
+}
+
+/**
+ * Controller: loginController
+ * ----------------------------------
+ * This controller handles user login by validating credentials, checking account status,
+ * generating access/refresh tokens, storing the refresh token in the database,
+ * and setting cookies for secure authentication management.
+ */
+export async function loginController(req, res) {
+  try {
+    // Extract email and password from request body
+    const { email, password } = req.body || {};
+
+    // Check email and pasword is provided or not
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Find user by email
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(400).json({
+        message: "User not registered!",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Check if account is active
+    if (user.status !== "Active") {
+      return res.status(400).json({
+        message: "Account is inactive or suspended. Please contact Admin.",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Verify password
+    const checkPassword = await bcrypt.compare(password, user.password);
+    if (!checkPassword) {
+      return res.status(400).json({
+        message: "Invalid password. Please try again.",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Generate tokens
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    // Save refresh token in DB
+    await UserModel.updateOne(
+      { _id: user._id },
+      { refresh_token: refreshToken }
+    );
+
+    // Cookie options for secure storage
+    const cookiesOption = {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    };
+
+    // Send tokens in cookies
+    res.cookie("accessToken", accessToken, cookiesOption);
+    res.cookie("refreshToken", refreshToken, cookiesOption);
+
+    // Return success response
+    return res.json({
+      message: "Login successful!",
+      error: false,
+      success: true,
+      data: { accessToken, refreshToken },
+    });
+  } catch (error) {
+    // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Server error during login.",
       error: true,
       success: false,
     });
