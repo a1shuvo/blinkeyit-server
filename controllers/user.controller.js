@@ -217,3 +217,61 @@ export async function loginController(req, res) {
     });
   }
 }
+
+/**
+ * Controller: logoutController
+ * ----------------------------------
+ * Handles user logout by:
+ * Clearing authentication cookies (access & refresh tokens).
+ * Removing the refresh token from the database for the user.
+ * Returning a success response.
+ */
+export async function logoutController(req, res) {
+  try {
+    // Ensure userId is available from auth middleware
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized. User ID missing.",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Cookie options (must match how they were originally set)
+    const cookieOptions = {
+      httpOnly: true,   // Prevent JavaScript access (XSS protection)
+      secure: true,     // Only over HTTPS (set false in local dev if needed)
+      sameSite: "None", // Required for cross-site cookies
+    };
+
+    // Clear authentication cookies
+    res.clearCookie("accessToken", cookieOptions);
+    res.clearCookie("refreshToken", cookieOptions);
+
+    // Remove refresh token from the database (invalidate session)
+    const user = await UserModel.findByIdAndUpdate(userId, { refresh_token: "" });
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found.",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Send success response
+    return res.json({
+      message: "Logout successful.",
+      error: false,
+      success: true,
+    });
+  } catch (error) {
+    // Handle unexpected errors
+    return res.status(500).json({
+      message: error.message || "Internal server error.",
+      error: true,
+      success: false,
+    });
+  }
+}
+
