@@ -5,6 +5,7 @@ import {
   generateAccessToken,
   generateRefreshToken,
 } from "../utils/generateToken.js";
+import uploadImageCloudinary from "../utils/uploadImageCloudinary.js";
 import verifyEmailTemplate from "../utils/verifyEmailTemplate.js";
 
 /**
@@ -240,8 +241,8 @@ export async function logoutController(req, res) {
 
     // Cookie options (must match how they were originally set)
     const cookieOptions = {
-      httpOnly: true,   // Prevent JavaScript access (XSS protection)
-      secure: true,     // Only over HTTPS (set false in local dev if needed)
+      httpOnly: true, // Prevent JavaScript access (XSS protection)
+      secure: true, // Only over HTTPS (set false in local dev if needed)
       sameSite: "None", // Required for cross-site cookies
     };
 
@@ -250,7 +251,9 @@ export async function logoutController(req, res) {
     res.clearCookie("refreshToken", cookieOptions);
 
     // Remove refresh token from the database (invalidate session)
-    const user = await UserModel.findByIdAndUpdate(userId, { refresh_token: "" });
+    const user = await UserModel.findByIdAndUpdate(userId, {
+      refresh_token: "",
+    });
     if (!user) {
       return res.status(404).json({
         message: "User not found.",
@@ -275,3 +278,69 @@ export async function logoutController(req, res) {
   }
 }
 
+/**
+ * Controller: uploadAvatar
+ * ----------------------------------
+ * This controller handles profile avatar uploads by verifying authentication,
+ * validating the uploaded image, uploading it to Cloudinary (or other storage),
+ * updating the user's avatar field in the database,
+ * and returning the updated avatar information.
+ */
+export async function uploadAvatar(req, res) {
+  try {
+    // Ensure user is authenticated (userId injected by auth middleware)
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized: User not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Ensure file is provided (handled by multer middleware)
+    const image = req.file;
+    if (!image) {
+      return res.status(400).json({
+        message: "No image file uploaded",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Upload image to cloud storage (Cloudinary)
+    const upload = await uploadImageCloudinary(image);
+
+    // Update user's avatar in the database
+    const updatedUser = await UserModel.findByIdAndUpdate(userId, {
+      avatar: upload.url,
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        message: "User not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Success response
+    return res.json({
+      message: "Profile avatar uploaded successfully",
+      data: {
+        _id: userId,
+        avatar: upload.url,
+      },
+      error: false,
+      success: true,
+    });
+
+  } catch (error) {
+    // Internal Server Error handler
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
