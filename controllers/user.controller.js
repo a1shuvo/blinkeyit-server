@@ -334,7 +334,6 @@ export async function uploadAvatar(req, res) {
       error: false,
       success: true,
     });
-
   } catch (error) {
     // Internal Server Error handler
     return res.status(500).json({
@@ -344,3 +343,71 @@ export async function uploadAvatar(req, res) {
     });
   }
 }
+
+/**
+ * Controller: updateUserDetails
+ * -----------------------------
+ * Updates a user's profile information including name, email, mobile, and password,
+ * ensures authentication, securely hashes the password if provided, and returns the updated user details
+ */
+export async function updateUserDetails(req, res) {
+  try {
+    // Verify authentication, userId is injected by authentication middleware
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized: User not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Extract fields from request body
+    const { name, email, mobile, password } = req.body;
+
+    // Hash password if provided
+    let hashedPassword;
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      hashedPassword = await bcrypt.hash(password, salt);
+    }
+
+    // Build dynamic update object only with provided fields
+    const updateFields = {
+      ...(name && { name }),
+      ...(email && { email }),
+      ...(mobile && { mobile }),
+      ...(password && { password: hashedPassword }),
+    };
+
+    // Update user document and return the new version
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      { new: true, runValidators: true } // returns updated doc and applies validation
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        message: "User not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    return res.json({
+      message: "User updated successfully",
+      error: false,
+      success: true,
+      data: updatedUser,
+    });
+  } catch (error) {
+    // Generic internal error handler
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
+
