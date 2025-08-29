@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import sendEmail from "../config/sendEmail.js";
 import UserModel from "../models/user.model.js";
+import forgotPasswordTemplate from "../utils/forgotPasswordTemplate.js";
+import generateOtp from "../utils/generateOtp.js";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -411,3 +413,75 @@ export async function updateUserDetails(req, res) {
   }
 }
 
+/**
+ * Controller: forgotPasswordController
+ * ------------------------------------
+ * validates email input, checks if user exists, generates otp and expiry time,
+ * updates user record with otp and expiry, sends password reset email with otp,
+ * handles possible errors and returns response
+ */
+export async function forgotPasswordController(req, res) {
+  try {
+    // Extract and validate email
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({
+        message: "Email is required",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Check if user exists
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        message: "User with this email does not exist",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Generate OTP and expiry (valid for 1 hour)
+    const otp = generateOtp();
+    const expireTime = new Date(Date.now() + 60 * 60 * 1000); // 1 hour later
+
+    // Update user with OTP and expiry
+    await UserModel.findByIdAndUpdate(user._id, {
+      forgot_password_otp: otp,
+      forgot_password_expiry: expireTime.toISOString(),
+    });
+
+    // Try sending email
+    try {
+      await sendEmail({
+        sendTo: email,
+        subject: "Blinkeyit - Password Reset OTP",
+        html: forgotPasswordTemplate({
+          name: user.name,
+          otp,
+        }),
+      });
+    } catch (mailError) {
+      return res.status(500).json({
+        message: "Failed to send OTP email",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Success response
+    return res.json({
+      message: "OTP has been sent to your email",
+      error: false,
+      success: true,
+    });
+  } catch (error) {
+    // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
