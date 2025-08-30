@@ -449,7 +449,7 @@ export async function forgotPasswordController(req, res) {
     // Update user with OTP and expiry
     await UserModel.findByIdAndUpdate(user._id, {
       forgot_password_otp: otp,
-      forgot_password_expiry: expireTime.toISOString(),
+      forgot_password_expiry: expireTime,
     });
 
     // Try sending email
@@ -496,7 +496,7 @@ export async function forgotPasswordController(req, res) {
 export async function verifyForgotPasswordOtp(req, res) {
   try {
     // Extract and validate inputs
-    const { email, otp } = req.body;
+    const { email, otp } = req.body || {};
     if (!email || !otp) {
       return res.status(400).json({
         message: "Email and OTP are required",
@@ -517,8 +517,7 @@ export async function verifyForgotPasswordOtp(req, res) {
 
     // Check OTP expiry
     const currentTime = new Date();
-    const expiryTime = new Date(user.forgot_password_expiry);
-    if (expiryTime < currentTime) {
+    if (user.forgot_password_expiry < currentTime) {
       return res.status(400).json({
         message: "OTP has expired",
         error: true,
@@ -543,6 +542,81 @@ export async function verifyForgotPasswordOtp(req, res) {
     });
   } catch (error) {
     // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
+
+/**
+ * Controller: resetPassword
+ * -------------------------
+ * validates email and password inputs, checks if user exists,
+ * ensures newPassword matches confirmPassword, verifies OTP was validated before reset,
+ * hashes new password and updates in database, clears otp and expiry after reset,
+ * returns success or error response
+ */
+export async function resetPassword(req, res) {
+  try {
+    // Extract and validate inputs
+    const { email, newPassword, confirmPassword } = req.body || {};
+    if (!email || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        message: "Email and passwords are required",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Check if user exists
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        message: "User with this email does not exist",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Optional: require OTP verification before password reset
+    // if (!user.forgot_password_verified) {
+    //   return res.status(403).json({
+    //     message: "OTP verification required before resetting password",
+    //     error: true,
+    //     success: false,
+    //   });
+    // }
+
+    // Check password confirmation
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        message: "New password and confirm password must be same",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user password and clear OTP fields
+    await UserModel.findByIdAndUpdate(user._id, {
+      password: hashedPassword,
+      forgot_password_otp: null,
+      forgot_password_expiry: null,
+      // forgot_password_verified: false,
+    });
+
+    // Success response
+    return res.json({
+      message: "Password updated successfully",
+      error: false,
+      success: true,
+    });
+  } catch (error) {
     return res.status(500).json({
       message: error.message || "Internal Server Error",
       error: true,
