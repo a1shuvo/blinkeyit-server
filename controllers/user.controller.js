@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import sendEmail from "../config/sendEmail.js";
 import UserModel from "../models/user.model.js";
 import forgotPasswordTemplate from "../utils/forgotPasswordTemplate.js";
@@ -617,6 +618,81 @@ export async function resetPassword(req, res) {
       success: true,
     });
   } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
+
+/**
+ * Controller: refreshToken
+ * -----------------------------------
+ * This controller handles issuing a new access token using a valid refresh token.
+ * It validates the refresh token from cookies or headers, verifies the user,
+ * generates a new access token, sets it in a secure cookie, and returns the token
+ * in the response for continued authenticated sessions.
+ */
+export async function refreshToken(req, res) {
+  try {
+    // Extract refresh token from cookies or Authorization header
+    const refreshToken =
+      req.cookies?.refreshToken || req.headers?.authorization?.split(" ")[1];
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        message: "Refresh token not provided",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Verify refresh token
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.SECRET_KEY_REFRESH_TOKEN);
+    } catch (err) {
+      return res.status(401).json({
+        message: "Invalid or expired refresh token",
+        error: true,
+        success: false,
+      });
+    }
+
+    const userId = decoded?.id;
+    if (!userId) {
+      return res.status(401).json({
+        message: "Token payload invalid",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Generate new access token
+    const newAccessToken = generateAccessToken(userId);
+
+    // Secure cookie options
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    };
+
+    // Set new access token in cookie
+    res.cookie("accessToken", newAccessToken, cookieOptions);
+
+    // Success response
+    return res.json({
+      message: "New access token generated successfully",
+      error: false,
+      success: true,
+      data: {
+        accessToken: newAccessToken,
+      },
+    });
+  } catch (error) {
+    // Handle unexpected server errors
     return res.status(500).json({
       message: error.message || "Internal Server Error",
       error: true,
