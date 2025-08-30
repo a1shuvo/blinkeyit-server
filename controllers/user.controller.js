@@ -485,3 +485,68 @@ export async function forgotPasswordController(req, res) {
     });
   }
 }
+
+/**
+ * Controller: verifyForgotPasswordOtp
+ * -----------------------------------
+ * validates email and otp input, checks if user exists,
+ * verifies otp expiry time, compares provided otp with stored otp,
+ * returns success or error response
+ */
+export async function verifyForgotPasswordOtp(req, res) {
+  try {
+    // Extract and validate inputs
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({
+        message: "Email and OTP are required",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Check if user exists
+    const user = await UserModel.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        message: "User with this email does not exist",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Check OTP expiry
+    const currentTime = new Date();
+    const expiryTime = new Date(user.forgot_password_expiry);
+    if (expiryTime < currentTime) {
+      return res.status(400).json({
+        message: "OTP has expired",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Compare OTP (convert both to string for consistency)
+    if (String(otp) !== String(user.forgot_password_otp)) {
+      return res.status(400).json({
+        message: "Invalid OTP",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Success response
+    return res.json({
+      message: "OTP verification successful",
+      error: false,
+      success: true,
+    });
+  } catch (error) {
+    // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
