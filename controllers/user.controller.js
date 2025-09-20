@@ -700,3 +700,26 @@ export async function refreshToken(req, res) {
     });
   }
 }
+
+export async function userDetails(req, res) {
+  try {
+    const userId = req.userId;
+    const user = await UserModel.findById(userId).select(
+      "-password -refresh_token"
+    );
+
+    return res.json({
+      message: "User Details",
+      data: user,
+      error: false,
+      success: true,
+    });
+  } catch (error) {
+    // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
