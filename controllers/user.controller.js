@@ -194,6 +194,11 @@ export async function loginController(req, res) {
       { refresh_token: refreshToken }
     );
 
+    // Update last login date in DB
+    await UserModel.findByIdAndUpdate(user?._id, {
+      last_login_date: new Date(),
+    });
+
     // Cookie options for secure storage
     const cookiesOption = {
       httpOnly: true,
@@ -701,21 +706,42 @@ export async function refreshToken(req, res) {
   }
 }
 
+/**
+ * Controller: userDetails
+ * -----------------------------------
+ * This controller retrieves the authenticated user's profile information.
+ * It uses the `userId` extracted from the request (set by authentication middleware),
+ * queries the database for the user's record, excludes sensitive fields (like password
+ * and refresh token), and returns the user data in the response.
+ */
 export async function userDetails(req, res) {
   try {
+    // Extract the authenticated user's ID from request (added by middleware)
     const userId = req.userId;
+
+    // Fetch user from the database, excluding sensitive fields
     const user = await UserModel.findById(userId).select(
       "-password -refresh_token"
     );
 
+    // If no user is found, return a 404 response
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Success: return the user details
     return res.json({
-      message: "User Details",
+      message: "User details fetched successfully",
       data: user,
       error: false,
       success: true,
     });
   } catch (error) {
-    // Handle unexpected server errors
+    // Handle unexpected server/database errors
     return res.status(500).json({
       message: error.message || "Internal Server Error",
       error: true,
@@ -723,3 +749,4 @@ export async function userDetails(req, res) {
     });
   }
 }
+
