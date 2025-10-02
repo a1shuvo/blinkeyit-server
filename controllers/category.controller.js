@@ -1,43 +1,54 @@
+/**
+ * Controller: addCategoryController
+ * ---------------------------------
+ * Adds a new category by validating input, checking duplicates,
+ * saving the category, and returning a structured response.
+ */
 import CategoryModel from "../models/category.model.js";
 
-export async function AddCategoryController(req, res) {
+export async function addCategoryController (req, res) {
   try {
-    const { name, image } = req.body;
+    // Destructure input safely
+    const { name, image } = req.body || {};
 
+    // Validate required fields
     if (!name || !image) {
       return res.status(400).json({
-        message: "Enter required fields",
+        message: "Provide both name and image for the category",
         error: true,
         success: false,
       });
     }
 
-    const addCategory = new CategoryModel({
-      name,
-      image,
-    });
-
-    const saveCategory = await addCategory.save();
-
-    if (!saveCategory) {
-      return res.status(500).json({
-        message: "Category Not Created",
+    // Check if category already exists
+    const existingCategory = await CategoryModel.findOne({ name });
+    if (existingCategory) {
+      return res.status(409).json({
+        message: "Category with this name already exists",
         error: true,
         success: false,
       });
     }
 
-    return res.json({
-      message: "Add Category",
-      data: saveCategory,
-      success: true,
+    // Create new category
+    const newCategory = new CategoryModel({ name, image });
+
+    // Save category to database
+    const savedCategory = await newCategory.save();
+
+    // Return success response
+    return res.status(201).json({
+      message: "Category created successfully",
+      data: savedCategory,
       error: false,
+      success: true,
     });
   } catch (error) {
+    // Handle unexpected server errors
     return res.status(500).json({
-      message: error.message || error,
+      message: error.message || "Internal Server Error",
       error: true,
       success: false,
     });
   }
-}
+};
