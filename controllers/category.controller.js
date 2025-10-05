@@ -6,7 +6,7 @@
  */
 import CategoryModel from "../models/category.model.js";
 
-export async function addCategoryController (req, res) {
+export async function addCategoryController(req, res) {
   try {
     // Destructure input safely
     const { name, image } = req.body || {};
@@ -51,4 +51,30 @@ export async function addCategoryController (req, res) {
       success: false,
     });
   }
-};
+}
+
+/**
+ * Controller: getCategoryController
+ * ---------------------------------
+ * Fetches all categories from the database and returns them in the response.
+ */
+export async function getCategoryController(req, res) {
+  try {
+    // Fetch all categories from the database
+    const categories = await CategoryModel.find();
+
+    // Return success response
+    return res.json({
+      data: categories,
+      error: false,
+      success: true,
+    });
+  } catch (error) {
+    // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
