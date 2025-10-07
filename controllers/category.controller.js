@@ -78,3 +78,53 @@ export async function getCategoryController(req, res) {
     });
   }
 }
+
+/**
+ * Controller: updateCategoryController
+ * ------------------------------------
+ * Updates an existing category by its ID with new name or image data.
+ */
+export async function updateCategoryController(req, res) {
+  try {
+    const { categoryId, name, image } = req.body;
+
+    // Validate required field
+    if (!categoryId) {
+      return res.status(400).json({
+        message: "Category ID is required",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Perform update operation
+    const update = await CategoryModel.updateOne(
+      { _id: categoryId },
+      { name, image }
+    );
+
+    // If no category was modified (not found or same data)
+    if (update.modifiedCount === 0) {
+      return res.status(404).json({
+        message: "Category not found or no changes made",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Return success response
+    return res.status(200).json({
+      message: "Category updated successfully",
+      data: update,
+      error: false,
+      success: true,
+    });
+  } catch (error) {
+    // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
