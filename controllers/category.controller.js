@@ -1,13 +1,13 @@
+import CategoryModel from "../models/category.model.js";
+import ProductModel from "../models/product.model.js";
+import SubCategoryModel from "../models/subCategory.model.js";
+
 /**
  * Controller: addCategoryController
  * ---------------------------------
  * Adds a new category by validating input, checking duplicates,
  * saving the category, and returning a structured response.
  */
-import CategoryModel from "../models/category.model.js";
-import ProductModel from "../models/product.model.js";
-import SubCategoryModel from "../models/subCategory.model.js";
-
 export async function addCategoryController(req, res) {
   try {
     // Destructure input safely
