@@ -42,3 +42,30 @@ export async function addSubCategoryController(req, res) {
     });
   }
 }
+
+/**
+ * Controller: getSubCategoryController
+ * ---------------------------------
+ * Fetches all sub categories from the database and returns them in the response.
+ */
+export async function getSubCategoryController(req, res) {
+  try {
+    // Fetch all sub categories from the database
+    const data = await SubCategoryModel.find().sort({ createdAt: -1 });
+
+    // Return success response
+    return res.json({
+      message: "Sub category data",
+      data: data,
+      error: false,
+      success: true,
+    });
+  } catch (error) {
+    // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
