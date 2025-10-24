@@ -121,3 +121,52 @@ export async function updateSubCategoryController(req, res) {
     });
   }
 }
+
+/**
+ * Controller: deleteSubCategoryController
+ * ---------------------------------------
+ * Deletes a subcategory by its ID. Validates input,
+ * attempts deletion, and returns a structured response.
+ */
+export async function deleteSubCategoryController(req, res) {
+  try {
+    // Destructure input safely
+    const { _id } = req.body || {};
+
+    // Validate required field
+    if (!_id) {
+      return res.status(400).json({
+        message: "Subcategory ID is required",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Attempt to delete subcategory
+    const deletedSubCategory = await SubCategoryModel.findByIdAndDelete(_id);
+
+    // If no subcategory found
+    if (!deletedSubCategory) {
+      return res.status(404).json({
+        message: "Subcategory not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Success response
+    return res.json({
+      message: "Subcategory deleted successfully",
+      data: deletedSubCategory,
+      success: true,
+      error: false,
+    });
+  } catch (error) {
+    // Handle unexpected server errors
+    return res.status(500).json({
+      message: error.message || "Internal Server Error",
+      error: true,
+      success: false,
+    });
+  }
+}
